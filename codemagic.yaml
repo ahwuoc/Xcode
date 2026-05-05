@@ -1,0 +1,48 @@
+workflows:
+  ios-build:
+    name: Build iOS Unsigned (IPA)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      vars:
+        XCODE_PROJECT: "Unity-iPhone.xcodeproj"
+        XCODE_SCHEME: "Unity-iPhone"
+      xcode: latest
+    scripts:
+      - name: Build Unsigned IPA
+        script: |
+          echo "Bắt đầu build Xcode project..."
+          
+          # Build app không cần code signing (cho phép build không cần chứng chỉ)
+          xcodebuild build \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphoneos \
+            -configuration Release \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            -derivedDataPath "build_output"
+            
+          echo "Đóng gói Payload thành file IPA..."
+          mkdir -p Payload
+          
+          # Tìm và copy file .app vào thư mục Payload
+          APP_PATH=$(find build_output/Build/Products/Release-iphoneos -name "*.app" | head -n 1)
+          
+          if [ -z "$APP_PATH" ]; then
+            echo "Lỗi: Không tìm thấy file .app sau khi build!"
+            exit 1
+          fi
+          
+          cp -R "$APP_PATH" Payload/
+          
+          # Nén thành file .ipa
+          zip -qr build_output/ios_unsigned.ipa Payload
+          
+          echo "Build hoàn tất!"
+    artifacts:
+      - build_output/*.ipa
+    publishing:
+      email:
+        recipients:
+          - delblk98@gmail.com
